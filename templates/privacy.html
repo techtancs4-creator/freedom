@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Privacy — FREEDOM SMP{% endblock %}
+{% block content %}
+<section class="page-section section-wrap narrow">
+  <div class="page-head reveal"><a class="back-home" href="{{ url_for('index') }}"><svg class="ico-home" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-5h4v5"/></svg>Back to home</a><div class="eyebrow">YOUR DATA</div><h1>PRIVACY<br><span class="gradient-text">NOTICE.</span></h1><p class="muted">A plain-language summary of what this website stores. It is not legal advice.</p></div>
+  <div class="panel prose reveal">
+    <h2>What we store</h2>
+    <ul><li>Your username, email address and a securely hashed password (we can't read your password).</li><li>Minecraft usernames you submit for whitelist requests and rank orders, plus payment transaction hashes you submit.</li><li>Support tickets and the replies you receive.</li><li>When your account was created and last logged in.</li></ul>
+    <h2>Why</h2>
+    <p>Only to run the community: let you log in, review whitelist requests, verify rank payments and answer support. We don't sell your data and the site has no advertising or analytics trackers.</p>
+    <h2>Who can see it</h2>
+    <p>Server staff with admin access can see account details and requests so they can do their job. Other players can't see your email.</p>
+    <h2>Cookies and third parties</h2>
+    <p>The site uses a session cookie to keep you logged in and protect forms. Fonts are loaded from Google Fonts, and the live server status may be checked through a public status service if the server can't be queried directly.</p>
+    <h2>Deleting your data</h2>
+    <p>Want your account removed or your data corrected? <a class="text-link" href="{{ url_for('support') }}">Open a support ticket</a> and staff will handle it within {{ response_time }}.</p>
+    {% if support_email %}<p>Contact: <a class="text-link" href="mailto:{{ support_email }}">{{ support_email }}</a></p>{% endif %}
+  </div>
+</section>
+{% endblock %}

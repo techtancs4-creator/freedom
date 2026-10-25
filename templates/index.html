@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}FREEDOM SMP — Your world, your rules{% endblock %}
+{% macro img(name, alt, w=1600, h=880, cls='', lazy=True) -%}
+<img class="{{ cls }}" src="{{ url_for('static', filename='img/' ~ name ~ '.webp') }}" alt="{{ alt }}" width="{{ w }}" height="{{ h }}" {% if lazy %}loading="lazy"{% else %}fetchpriority="high"{% endif %}>
+{%- endmacro %}
+{% block content %}
+<section class="hero section-wrap">
+  <div class="hero-copy reveal">
+    <div class="eyebrow"><span class="live-dot"></span> NEW WORLD · NEW PLAYERS · NEW STORY</div>
+    <h1>YOUR WORLD.<br><span class="gradient-text">YOUR RULES.</span></h1>
+    <p class="hero-lede hero-tagline">{{ site_settings.server_description }}</p>
+    <p class="hero-lede">FREEDOM SMP is a brand-new Minecraft Java survival world built around its community. The old SMP is behind us. Now we're building something better, together.</p>
+    <div class="hero-actions">
+      {% if current_user %}<a class="button button-primary" href="{{ url_for('dashboard') }}">Open dashboard <span>↗</span></a>
+      {% else %}<a class="button button-primary" href="{{ url_for('register') }}">Create account <span>↗</span></a>{% endif %}
+      <a class="button button-ghost" href="{{ url_for('join') }}">How to join</a>
+    </div>
+    <ul class="hero-checks">
+      <li>Java Edition · {{ site_settings.server_version }}</li>
+      <li>Whitelisted and staff-moderated</li>
+      <li>Requests and tickets answered within {{ response_time }}</li>
+    </ul>
+  </div>
+  <figure class="hero-frame reveal">
+    {{ img('world-day', 'Pixel art Minecraft landscape: a wooden house, oak trees and a lake at sunrise', cls='', lazy=False) }}
+    <span class="shot-chip t">Java Edition</span><span class="shot-chip b">★ Survival SMP</span>
+  </figure>
+</section>
+
+<section class="mc-server section-wrap reveal" aria-label="Server status" data-server-box>
+  <div class="mc-server-box">
+    <img class="mc-icon" src="{{ url_for('static', filename='freedom-logo.png') }}" alt="" width="64" height="64">
+    <div>
+      <div class="mc-name">FREEDOM SMP <span class="mc-badge">JAVA</span></div>
+      <div class="mc-motd">{{ site_settings.server_description }}</div>
+      <div class="mc-ver">{{ site_settings.server_version }}</div>
+    </div>
+    <div class="mc-right">
+      <div class="mc-players"><span data-status-dot class="status-dot status-checking"></span><strong data-status-text>Checking…</strong></div>
+      <span class="mc-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+    </div>
+  </div>
+  <div class="mc-address-row">
+    <div><small>SERVER ADDRESS</small>
+      {% if ip_visible %}<strong class="mono" id="server-address">{{ site_settings.server_ip }}</strong>
+      {% else %}<strong class="mono locked-address">🔒 Revealed at launch</strong>{% endif %}
+    </div>
+    <div class="mc-address-actions">
+      {% if ip_visible %}<button class="button button-primary copy-ip" data-copy-ip="{{ site_settings.server_ip }}" type="button">Copy IP</button>{% endif %}
+      <a class="button button-ghost" href="{{ url_for('join') }}">How to join</a>
+    </div>
+  </div>
+</section>
+
+{% if launch.set and launch.prelaunch %}
+<section class="launch-card section-wrap reveal" id="launch" data-launch-ts="{{ launch.ts }}">
+  <div class="launch-copy">
+    <div class="eyebrow">LAUNCH COUNTDOWN</div>
+    <h2>THE NEW ERA<br><span class="gradient-text">BEGINS IN</span></h2>
+    <p class="muted">{{ launch.date_label }} · {{ launch.time_label }}{% if launch.locked %} · The server address is revealed here the moment we go live.{% endif %}</p>
+    <div class="launch-actions">
+      <a class="button button-primary" href="{{ url_for('register') if not current_user else url_for('dashboard') + '#whitelist' }}">{{ 'Request whitelist' if current_user else 'Create account' }} <span>↗</span></a>
+      <a class="button button-ghost" href="{{ url_for('launch_ics') }}">Add to calendar</a>
+      {% if site_settings.countdown_url %}<a class="button button-ghost" href="{{ site_settings.countdown_url }}" target="_blank" rel="noopener noreferrer">Full countdown ↗</a>{% endif %}
+    </div>
+  </div>
+  <div class="countdown" data-countdown aria-live="off">
+    <div class="cd-box"><b data-cd="days">00</b><small>DAYS</small></div>
+    <div class="cd-box"><b data-cd="hours">00</b><small>HOURS</small></div>
+    <div class="cd-box"><b data-cd="minutes">00</b><small>MINUTES</small></div>
+    <div class="cd-box"><b data-cd="seconds">00</b><small>SECONDS</small></div>
+  </div>
+</section>
+{% endif %}
+
+<section class="facts section-wrap reveal" aria-label="Quick facts">
+  <div class="fact-card"><img src="{{ url_for('static', filename='img/block-grass.png') }}" alt="" width="46" height="46"><div><b>{{ facts.accounts }}</b><small>Accounts created</small></div></div>
+  <div class="fact-card"><img src="{{ url_for('static', filename='img/block-diamond.png') }}" alt="" width="46" height="46"><div><b>{{ facts.whitelisted }}</b><small>Players whitelisted</small></div></div>
+  <div class="fact-card"><img src="{{ url_for('static', filename='img/block-planks.png') }}" alt="" width="46" height="46"><div><b>{{ site_settings.server_version|replace('Java ','') }}</b><small>Java Edition</small></div></div>
+  <div class="fact-card"><img src="{{ url_for('static', filename='img/block-gold.png') }}" alt="" width="46" height="46"><div><b>{% if launch.set %}{{ launch.date_label.split(' ')[0] }} {{ launch.date_label.split(' ')[1] }}{% else %}Soon{% endif %}</b><small>{{ 'Launch day' if launch.prelaunch else 'Launched' }}</small></div></div>
+</section>
+
+<div class="grass-divider"></div>
+
+<section class="story-wrap section-wrap" id="story">
+  <div class="story">
+    <figure class="shot reveal">{{ img('world-night', 'Pixel art castle with glowing windows under a night sky') }}<figcaption>The story so far</figcaption></figure>
+    <div class="reveal">
+      <div class="eyebrow">OUR STORY</div>
+      <h2>FROM THE OLD WORLD<br><span class="gradient-text">TO A NEW ONE.</span></h2>
+      <p>Our last SMP came to an end a few months ago, but the community never really left. FREEDOM SMP is the comeback: a clean world, new players and a brand-new story.</p>
+      <p>Everyone starts from zero, so everyone gets the same chance to claim land, build a base and leave their mark on the map.</p>
+      <ul class="timeline">
+        <li><b>THEN</b><span>The old SMP ended and the world went quiet.</span></li>
+        <li><b>NOW</b><span>{% if site_settings.registrations_open == '1' %}Accounts and whitelist requests are open. Staff review them within {{ response_time }}.{% else %}Sign-ups are paused for the moment. Watch Discord for the reopening.{% endif %}</span></li>
+        <li><b>NEXT</b><span>{% if launch.set and launch.prelaunch %}Launch day: {{ launch.date_label }} at {{ launch.time_label }}. The server address unlocks automatically.{% elif launch.set %}We're live. Join with the address above.{% else %}The launch date will be announced soon.{% endif %}</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="steps-section section-wrap" id="how">
+  <div class="section-heading reveal"><div><div class="eyebrow">THREE STEPS</div><h2>GET IN<br><span class="gradient-text">BEFORE LAUNCH.</span></h2></div><p>Joining takes a couple of minutes. Staff then review your whitelist request within {{ response_time }}.</p></div>
+  <div class="steps-grid">
+    <article class="step-card reveal"><span class="step-num">1</span><h3>Create your account</h3><p>Sign up with a username, email and a strong password. It's free and takes a minute.</p></article>
+    <article class="step-card reveal"><span class="step-num">2</span><h3>Request your spot</h3><p>Send your Minecraft Java username from the dashboard. Approval takes up to {{ response_time }} and the status shows on your dashboard.</p></article>
+    <article class="step-card reveal"><span class="step-num">3</span><h3>Join at launch</h3><p>Once approved, connect with the server address on launch day. Need help? <a class="text-link" href="{{ url_for('support') }}">Open a ticket</a>.</p></article>
+  </div>
+</section>
+
+<section class="features-section section-wrap" id="features">
+  <div class="section-heading reveal"><div><div class="eyebrow">WHAT AWAITS YOU</div><h2>MORE THAN<br><span class="gradient-text">JUST SURVIVAL.</span></h2></div><p>A world that feels better when you're part of it. Bring your ideas, your friends, and your next big build.</p></div>
+  <div class="feature-grid feature-grid-6">
+    <article class="feature-card reveal"><img class="block-icon" src="{{ url_for('static', filename='img/block-grass.png') }}" alt="" width="76" height="76"><h3>Build without limits</h3><p>From starter cabins to sprawling kingdoms, make a place that feels like yours.</p></article>
+    <article class="feature-card reveal"><img class="block-icon" src="{{ url_for('static', filename='img/block-log.png') }}" alt="" width="76" height="76"><h3>Find your crew</h3><p>Team up, trade resources and explore together. Random encounters become friendships.</p></article>
+    <article class="feature-card reveal"><img class="block-icon" src="{{ url_for('static', filename='img/block-diamond.png') }}" alt="" width="76" height="76"><h3>Dig deep, go far</h3><p>Caves, ores and unexplored lands are waiting for the first players brave enough to find them.</p></article>
+    <article class="feature-card reveal"><img class="block-icon" src="{{ url_for('static', filename='img/block-planks.png') }}" alt="" width="76" height="76"><h3>Events &amp; projects</h3><p>Community events, shared projects and stories worth logging back in for.</p></article>
+    <article class="feature-card reveal"><img class="block-icon" src="{{ url_for('static', filename='img/block-stone.png') }}" alt="" width="76" height="76"><h3>Fair, friendly rules</h3><p>Clear <a class="text-link" href="{{ url_for('rules') }}">rules</a>, staff moderation and an appeal process, so everyone can enjoy the world.</p></article>
+    <article class="feature-card reveal"><img class="block-icon" src="{{ url_for('static', filename='img/block-gold.png') }}" alt="" width="76" height="76"><h3>Real staff support</h3><p>Whitelist requests, payments and tickets are reviewed by real people within {{ response_time }}.</p></article>
+  </div>
+</section>
+
+<section class="gallery-section section-wrap" id="gallery">
+  <div class="section-heading reveal"><div><div class="eyebrow">WORLD PREVIEW</div><h2>A LOOK AT<br><span class="gradient-text">THE WORLD.</span></h2></div><p>Tap a picture to see it bigger.</p></div>
+  <div class="gallery-grid">
+    <a class="shot reveal" href="{{ url_for('static', filename='img/world-day.webp') }}" data-lightbox="Claim your land">{{ img('world-day', 'Pixel art wooden house by a lake') }}<figcaption>Claim your land</figcaption></a>
+    <a class="shot reveal" href="{{ url_for('static', filename='img/world-night.webp') }}" data-lightbox="Defend your home">{{ img('world-night', 'Pixel art castle at night') }}<figcaption>Defend your home</figcaption></a>
+    <a class="shot reveal" href="{{ url_for('static', filename='img/world-caves.webp') }}" data-lightbox="Dig for diamonds">{{ img('world-caves', 'Pixel art cave with torches, ores and lava') }}<figcaption>Dig for diamonds</figcaption></a>
+    <a class="shot reveal" href="{{ url_for('static', filename='img/world-crew.webp') }}" data-lightbox="Build your crew">{{ img('world-crew', 'Pixel art village with four players at sunset') }}<figcaption>Build your crew</figcaption></a>
+  </div>
+  <p class="gallery-note">Pixel artwork · in-game screenshots coming after launch</p>
+</section>
+
+<section class="updates-section section-wrap" id="updates">
+  <div class="section-heading reveal"><div><div class="eyebrow">FROM THE SERVER</div><h2>THE LATEST<br><span class="gradient-text">BLOCK BY BLOCK.</span></h2></div><span class="section-count">UPDATES / {{ '%02d'|format(announcements|length) }}</span></div>
+  <div class="updates-list">
+    {% for item in announcements %}
+    <article class="update-row reveal"><div class="update-tag">{% if item.pinned %}📌 {% endif %}{{ item.tag }}</div><div class="update-main"><h3>{{ item.title }}</h3><p>{{ item.body }}</p></div><div class="update-date">{{ item.created_at|d }}</div></article>
+    {% else %}<p class="empty-state">No updates yet. Check back soon.</p>{% endfor %}
+  </div>
+</section>
+
+<section class="updates-section section-wrap" id="vote">
+  <div class="section-heading reveal"><div><div class="eyebrow">SUPPORT THE COMMUNITY</div><h2>VOTE FOR<br><span class="gradient-text">FREEDOM SMP.</span></h2></div><p>Vote on our server-list pages to help more players discover the world.</p></div>
+  <div class="feature-grid vote-grid">{% for item in vote_sites %}<article class="feature-card reveal"><div class="feature-number">VOTE / {{ '%02d'|format(loop.index) }}</div><h3>{{ item.title }}</h3><p>{{ item.description }}</p><a class="button button-primary" href="{{ item.url }}" target="_blank" rel="noopener noreferrer">Open vote page ↗</a></article>{% else %}<p class="empty-state">Vote links are being set up. Check back soon.</p>{% endfor %}</div>
+</section>
+
+<section class="updates-section section-wrap" id="ranks">
+  <div class="section-heading reveal"><div><div class="eyebrow">OPTIONAL SERVER SUPPORT</div><h2>CHOOSE YOUR<br><span class="gradient-text">RANK.</span></h2></div><p>Ranks are optional and reviewed manually after payment (within {{ response_time }}). Create an account and submit your order from the dashboard.</p></div>
+  <div class="feature-grid rank-grid">{% for rank in ranks %}<article class="feature-card reveal"><img class="block-icon" src="{{ url_for('static', filename='img/block-' ~ (['gold','diamond','redstone','planks'][loop.index0 % 4]) ~ '.png') }}" alt="" width="76" height="76"><div class="feature-number">COMMUNITY RANK</div><h3>{{ rank.name }}</h3><p>{{ rank.description }}</p><div class="rank-price">{{ rank.price }}</div><a class="button button-ghost" href="{{ url_for('dashboard') + '#rank-orders' if current_user else url_for('register') }}">{{ 'Order in dashboard' if current_user else 'Create account to order' }} ↗</a></article>{% else %}<p class="empty-state">Ranks will be available soon.</p>{% endfor %}</div>
+  <p class="crypto-note">Payments are manually verified. Only send USDT on the Polygon network to the wallet shown in your dashboard, and never share wallet seed phrases or private keys. Questions about a payment? <a class="text-link" href="{{ url_for('support', category='rank_payment') }}">Contact support</a>.</p>
+</section>
+
+<section class="section-wrap" id="faq-teaser">
+  <div class="section-heading reveal"><div><div class="eyebrow">QUICK ANSWERS</div><h2>GOOD<br><span class="gradient-text">TO KNOW.</span></h2></div><a class="button button-ghost" href="{{ url_for('faq') }}">All FAQs ↗</a></div>
+  <div class="faq-list">
+    <details class="faq-item reveal"><summary>How long does whitelist approval take?</summary><p>Staff review requests manually, usually within {{ response_time }}. The status shows on your dashboard.</p></details>
+    <details class="faq-item reveal"><summary>Is this Java or Bedrock?</summary><p>FREEDOM SMP is a Java Edition server ({{ site_settings.server_version }}).</p></details>
+    <details class="faq-item reveal"><summary>When is the launch?</summary><p>{% if launch.set %}{{ launch.date_label }} at {{ launch.time_label }}. The server address appears on this page automatically.{% else %}The date will be announced soon.{% endif %}</p></details>
+    <details class="faq-item reveal"><summary>I forgot my password</summary><p>Open a <a class="text-link" href="{{ url_for('support', category='password') }}">password-reset ticket</a>. Staff reply within {{ response_time }}.</p></details>
+  </div>
+</section>
+
+<section class="join-banner section-wrap reveal">
+  <div class="eyebrow">THE WORLD IS WAITING</div><h2>READY TO MAKE<br><span class="gradient-text">YOUR MARK?</span></h2><p>Every great world starts with one player. Make that player you.</p>
+  <div class="hero-actions"><a class="button button-primary" href="{{ url_for('register') if not current_user else url_for('dashboard') }}">{{ 'Open dashboard' if current_user else 'Create your account' }} <span>↗</span></a>{% if discord_url %}<a class="button button-ghost" href="{{ discord_url }}" target="_blank" rel="noopener noreferrer">Join Discord <span>↗</span></a>{% endif %}</div>
+</section>
+{% endblock %}

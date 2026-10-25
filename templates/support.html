@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Support — FREEDOM SMP{% endblock %}
+{% block content %}
+<section class="page-section section-wrap" id="top">
+  <div class="page-head reveal"><a class="back-home" href="{{ url_for('index') }}"><svg class="ico-home" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-5h4v5"/></svg>Back to home</a><div class="eyebrow">WE'RE HERE TO HELP</div><h1>SUPPORT<br><span class="gradient-text">CENTER.</span></h1><p class="muted">Send us a ticket and staff will reply within <strong>{{ response_time }}</strong>.</p></div>
+  <img class="page-banner reveal" src="{{ url_for('static', filename='img/world-day.webp') }}" alt="" width="1600" height="880" loading="lazy">
+  <div class="support-grid">
+    <div class="support-side">
+      <div class="panel reveal"><div class="eyebrow">RESPONSE TIME</div><h2>Within {{ response_time }}</h2><p class="muted">Staff are volunteers and answer in order. Sending the same ticket twice doesn't make it faster, so one clear message is best.</p></div>
+      <div class="panel reveal"><div class="eyebrow">OTHER WAYS</div><h2>Quick links</h2>
+        <div class="info-list">
+          {% if discord_url %}<div><small>DISCORD</small><strong><a class="text-link" href="{{ discord_url }}" target="_blank" rel="noopener noreferrer">Join our server ↗</a></strong></div>{% endif %}
+          {% if support_email %}<div><small>EMAIL</small><strong><a class="text-link" href="mailto:{{ support_email }}">{{ support_email }}</a></strong></div>{% endif %}
+          <div><small>SELF-SERVICE</small><strong><a class="text-link" href="{{ url_for('faq') }}">FAQ</a> · <a class="text-link" href="{{ url_for('join') }}">Join guide</a> · <a class="text-link" href="{{ url_for('rules') }}">Rules</a></strong></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel reveal" id="sent">
+      <div class="panel-heading"><div><div class="eyebrow">NEW TICKET</div><h2>Contact staff</h2></div><span class="panel-symbol">✉</span></div>
+      <form method="post" class="form-stack" data-auth-form>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="text" name="website" class="hp-field" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <label>Category<select name="category" data-ticket-category>{% for value, label in ticket_categories %}<option value="{{ value }}" {% if form.category == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+        <p class="field-hint ticket-hint" data-ticket-hint></p>
+        {% if not current_user %}
+        <label>Your name or Minecraft username<input name="contact_name" value="{{ form.contact_name }}" maxlength="40" required></label>
+        <label>Email for our reply<input name="contact_email" type="email" value="{{ form.contact_email }}" maxlength="254" required><span class="field-hint">Guests get answers by email. <a class="text-link" href="{{ url_for('login', next=url_for('support')) }}">Log in</a> to follow replies on your dashboard.</span></label>
+        {% endif %}
+        <label>Subject<input name="subject" value="{{ form.subject }}" maxlength="100" minlength="3" required></label>
+        <label>Message <span class="label-note" data-count-for="message">0 / 1500</span><textarea name="message" rows="6" minlength="10" maxlength="1500" required data-count placeholder="Tell us what's going on. Include your Minecraft name and any details that help.">{{ form.message }}</textarea></label>
+        <div class="notice notice-small"><span>⏱</span><p>Staff will reply within {{ response_time }}.</p></div>
+        <button class="button button-primary" type="submit">Send ticket <span>↗</span></button>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}

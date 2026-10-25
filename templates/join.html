@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}How to join — FREEDOM SMP{% endblock %}
+{% block content %}
+<section class="page-section section-wrap">
+  <div class="page-head reveal"><a class="back-home" href="{{ url_for('index') }}"><svg class="ico-home" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-5h4v5"/></svg>Back to home</a><div class="eyebrow">GETTING STARTED</div><h1>HOW TO<br><span class="gradient-text">JOIN.</span></h1><p class="muted">Follow these steps to get whitelisted and join FREEDOM SMP on Minecraft Java Edition.</p></div>
+  <img class="page-banner reveal" src="{{ url_for('static', filename='img/world-crew.webp') }}" alt="" width="1600" height="880" loading="lazy">
+  <ol class="join-steps">
+    <li class="panel reveal"><span class="step-num">1</span><div><h2>Create your account</h2><p>Register on this site with a username, email and password. This is your community account for requests, ranks and support.</p><a class="button button-ghost" href="{{ url_for('register') if not current_user else url_for('dashboard') }}">{{ 'Open dashboard' if current_user else 'Create account' }} ↗</a></div></li>
+    <li class="panel reveal"><span class="step-num">2</span><div><h2>Request your whitelist spot</h2><p>In your dashboard, send your exact <strong>Minecraft Java username</strong>. Staff review every request manually.</p><div class="notice"><span>⏱</span><p>Requests are usually processed within <strong>{{ response_time }}</strong>. You'll see the status (and any staff note) on your dashboard, so there is no need to send it twice.</p></div></div></li>
+    <li class="panel reveal"><span class="step-num">3</span><div><h2>Get the server address</h2>
+      {% if ip_visible %}<p>Add this address in Minecraft under <em>Multiplayer → Add Server</em>:</p><div class="address-box"><code class="mono">{{ site_settings.server_ip }}</code><button class="button button-ghost copy-ip" data-copy-ip="{{ site_settings.server_ip }}" type="button">Copy IP</button></div><p class="muted">Version: {{ site_settings.server_version }} · Java Edition</p>
+      {% else %}<p>The server address is revealed here on launch day: <strong>{{ launch.date_label }} at {{ launch.time_label }}</strong>. Until then, request your whitelist spot so you're ready.</p><div class="address-box"><code class="mono">🔒 Revealed at launch</code></div>{% endif %}
+    </div></li>
+    <li class="panel reveal"><span class="step-num">4</span><div><h2>Read the rules &amp; jump in</h2><p>Everyone plays by the same <a class="text-link" href="{{ url_for('rules') }}">rules</a>. Join our Discord for announcements, events and help from the community.</p><div class="hero-actions"><a class="button button-primary" href="{{ url_for('rules') }}">Read the rules ↗</a>{% if discord_url %}<a class="button button-ghost" href="{{ discord_url }}" target="_blank" rel="noopener noreferrer">Join Discord ↗</a>{% endif %}</div></div></li>
+  </ol>
+  <p class="muted center-note">Stuck? <a class="text-link" href="{{ url_for('faq') }}">Read the FAQ</a> or <a class="text-link" href="{{ url_for('support') }}">open a support ticket</a>. Staff reply within {{ response_time }}.</p>
+</section>
+{% endblock %}

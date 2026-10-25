@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Rules — FREEDOM SMP{% endblock %}
+{% block content %}
+<section class="page-section section-wrap">
+  <div class="page-head reveal"><a class="back-home" href="{{ url_for('index') }}"><svg class="ico-home" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-5h4v5"/></svg>Back to home</a><div class="eyebrow">COMMUNITY STANDARDS</div><h1>SERVER<br><span class="gradient-text">RULES.</span></h1><p class="muted">Keep FREEDOM SMP fun and fair for everyone. Joining the server means you agree to these rules.</p></div>
+  <img class="page-banner reveal" src="{{ url_for('static', filename='img/world-night.webp') }}" alt="" width="1600" height="880" loading="lazy">
+  <div class="rules-grid">
+    {% for block in blocks %}
+    <article class="panel rules-card reveal"><div class="eyebrow">{{ '%02d'|format(loop.index) }}</div><h2>{{ block.title }}</h2><ul>{% for item in block['items'] %}<li>{{ item }}</li>{% endfor %}</ul></article>
+    {% else %}<p class="empty-state">Rules will be published soon.</p>{% endfor %}
+  </div>
+  <div class="notice reveal"><span>⚖</span><p>Broke a rule by accident, or think a punishment was a mistake? <a class="text-link" href="{{ url_for('support', category='ban_appeal') }}">Open an appeal</a>. Staff review appeals within {{ response_time }}.</p></div>
+</section>
+{% endblock %}

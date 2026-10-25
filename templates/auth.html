@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Create account' if mode == 'register' else 'Log in' }} — FREEDOM SMP{% endblock %}
+{% block content %}
+<section class="auth-section section-wrap">
+  <div class="auth-decoration"><img class="auth-shot" src="{{ url_for('static', filename='img/world-day.webp') }}" alt="Pixel art Minecraft landscape with a wooden house and a lake" width="1600" height="880"><div class="eyebrow">YOUR NEXT CHAPTER</div><h2>YOUR WORLD<br><span class="gradient-text">IS CALLING.</span></h2><p>One account gets you closer to the community, updates, and your place in the world.</p></div>
+  <div class="auth-card">
+    <a class="back-home" href="{{ url_for('index') }}"><svg class="ico-home" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-5h4v5"/></svg>Back to home</a>
+    <div class="eyebrow">{{ 'START YOUR JOURNEY' if mode == 'register' else 'WELCOME BACK' }}</div>
+    <h1>{{ 'Create account' if mode == 'register' else 'Log in' }}</h1>
+    <p class="muted">{{ 'Join FREEDOM SMP in just a minute.' if mode == 'register' else 'Your next adventure is one login away.' }}</p>
+    {% if errors %}<div class="form-errors" role="alert"><strong>{{ 'Please fix the following:' if errors|length > 1 else 'Something needs attention:' }}</strong><ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+    {% if mode == 'register' and not registrations_open %}
+      <div class="notice"><span>⏸</span><p>Registrations are temporarily closed. Follow our Discord for the reopening announcement.</p></div>
+    {% else %}
+    <form method="post" class="form-stack" data-auth-form novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {% if mode == 'register' %}
+      <label>Username<input name="username" value="{{ form.username }}" autocomplete="username" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]{3,20}" placeholder="BlockBuilder" required autofocus><span class="field-hint">3-20 characters: letters, numbers, underscore.</span></label>
+      <label>Email address<input name="email" value="{{ form.email }}" type="email" autocomplete="email" maxlength="254" placeholder="you@example.com" required><span class="field-hint">Used for your account only. We never share it.</span></label>
+      <label>Password <span class="label-note">10+ characters</span>
+        <span class="pw-wrap"><input name="password" type="password" autocomplete="new-password" minlength="10" maxlength="128" placeholder="Create a strong password" required data-pw-strength><button type="button" class="pw-toggle" data-pw-toggle aria-label="Show password">Show</button></span>
+        <span class="pw-meter" data-pw-meter aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="field-hint" data-pw-hint>Use a unique password you don't use anywhere else.</span></label>
+      <label>Confirm password<span class="pw-wrap"><input name="confirm_password" type="password" autocomplete="new-password" minlength="10" maxlength="128" placeholder="Enter it again" required data-pw-confirm><button type="button" class="pw-toggle" data-pw-toggle aria-label="Show password">Show</button></span><span class="field-hint" data-confirm-hint></span></label>
+      {% else %}
+      <label>Username or email<input name="identity" value="{{ form.identity }}" autocomplete="username" placeholder="Your username or email" required autofocus></label>
+      <label>Password<span class="pw-wrap"><input name="password" type="password" autocomplete="current-password" placeholder="Your password" required><button type="button" class="pw-toggle" data-pw-toggle aria-label="Show password">Show</button></span></label>
+      <div class="check-row"><label class="check"><input type="checkbox" name="remember" value="1"> <span>Keep me logged in on this device</span></label><a class="text-link" href="{{ url_for('support', category='password') }}">Forgot password?</a></div>
+      {% endif %}
+      <button class="button button-primary button-full" type="submit">{{ 'Create account' if mode == 'register' else 'Log in to your account' }} <span>↗</span></button>
+    </form>
+    {% endif %}
+    <div class="auth-switch">{% if mode == 'register' %}Already part of the crew? <a href="{{ url_for('login') }}">Log in</a>{% else %}New to the world? <a href="{{ url_for('register') }}">Create an account</a>{% endif %}</div>
+    {% if mode == 'login' %}<div class="notice notice-small"><span>⏱</span><p>Locked out? Open a password-reset ticket and staff will help within {{ response_time }}.</p></div>{% endif %}
+    <div class="auth-security"><span>◇</span> Passwords are securely hashed before storage. By signing up you agree to the <a href="{{ url_for('rules') }}">rules</a> and <a href="{{ url_for('privacy') }}">privacy notice</a>.</div>
+  </div>
+</section>
+{% endblock %}

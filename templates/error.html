@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ code }} — FREEDOM SMP{% endblock %}
+{% block content %}
+<section class="error-section section-wrap">
+  <img class="auth-shot" style="margin-inline:auto" src="{{ url_for('static', filename='img/world-caves.webp') }}" alt="" width="1600" height="880">
+  <div class="error-code">{{ code }}</div>
+  <div class="eyebrow">A LITTLE DETOUR</div>
+  <h1>{{ heading }}</h1>
+  <p>{{ message }}</p>
+  <a href="{{ url_for('index') }}" class="button button-primary"><svg class="ico-home" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-5h4v5"/></svg>Back to home</a>
+</section>
+{% endblock %}

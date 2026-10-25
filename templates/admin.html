@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Admin panel — FREEDOM SMP{% endblock %}
+{% macro review_form(url, item, approve_label='Approve') %}
+<form method="post" action="{{ url }}" class="review-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input name="admin_note" maxlength="300" value="{{ item.admin_note }}" placeholder="Optional note shown to the player (e.g. reason)">
+  <div class="queue-actions"><button name="status" value="approved" class="small-action action-approve" type="submit">{{ approve_label }}</button><button name="status" value="pending" class="small-action" type="submit">Set pending</button><button name="status" value="declined" class="small-action action-decline" type="submit">Decline</button></div>
+</form>
+{% endmacro %}
+{% block content %}
+<section class="admin-section section-wrap" data-admin>
+  <div class="admin-top"><div><a class="back-home" href="{{ url_for('index') }}"><svg class="ico-home" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-5h4v5"/></svg>Back to home</a><div class="eyebrow">CONTROL ROOM / ADMIN ACCESS</div><h1>SERVER <span class="gradient-text">CONTROL.</span></h1><p class="muted">Review requests, answer tickets, manage players and update public server details.</p></div><div class="admin-badge"><span data-status-dot class="status-dot status-checking"></span> <span data-status-text>Checking…</span></div></div>
+  <div class="admin-tabs" role="tablist">
+    <a href="#overview" data-tab-link="overview">Overview</a>
+    <a href="#whitelist" data-tab-link="whitelist">Whitelist{% if stats.pending_wl %} <b class="pill">{{ stats.pending_wl }}</b>{% endif %}</a>
+    <a href="#rank-orders" data-tab-link="rank-orders">Rank orders{% if stats.pending_orders %} <b class="pill">{{ stats.pending_orders }}</b>{% endif %}</a>
+    <a href="#tickets" data-tab-link="tickets">Tickets{% if stats.open_tickets %} <b class="pill">{{ stats.open_tickets }}</b>{% endif %}</a>
+    <a href="#users" data-tab-link="users">Players</a>
+    <a href="#announcements" data-tab-link="announcements">Announcements</a>
+    <a href="#ranks" data-tab-link="ranks">Ranks</a>
+    <a href="#votes" data-tab-link="votes">Vote links</a>
+    <a href="#settings" data-tab-link="settings">Settings</a>
+    <a href="#audit" data-tab-link="audit">Activity log</a>
+  </div>
+  <div class="admin-layout">
+
+    <section class="panel" id="overview" data-tab="overview"><div class="panel-heading"><div><div class="eyebrow">AT A GLANCE</div><h2>Overview</h2></div><span class="panel-symbol">◈</span></div>
+      <div class="stat-grid">
+        <a class="stat-card" href="#whitelist"><b>{{ stats.pending_wl }}</b><small>PENDING WHITELIST</small></a>
+        <a class="stat-card" href="#rank-orders"><b>{{ stats.pending_orders }}</b><small>PENDING RANK ORDERS</small></a>
+        <a class="stat-card" href="#tickets"><b>{{ stats.open_tickets }}</b><small>OPEN TICKETS</small></a>
+        <a class="stat-card" href="#users"><b>{{ stats.users }}</b><small>ACCOUNTS</small></a>
+        <div class="stat-card"><b>{{ stats.new_week }}</b><small>NEW THIS WEEK</small></div>
+        <div class="stat-card"><b>{{ stats.approved_wl }}</b><small>APPROVED PLAYERS</small></div>
+      </div>
+      <div class="info-list overview-list">
+        <div><small>LIVE STATUS</small><strong><span data-status-dot class="status-dot status-checking"></span> <span data-status-text>Checking…</span></strong></div>
+        <div><small>LAUNCH</small><strong>{% if launch.set %}{{ launch.date_label }} · {{ launch.time_label }} {{ '(upcoming)' if launch.prelaunch else '(live)' }}{% else %}Not set{% endif %}</strong></div>
+        <div><small>SERVER ADDRESS</small><strong class="mono">{{ site_settings.server_ip }}</strong>{% if launch.locked %}<small class="warn-text">Hidden from the public until launch</small>{% endif %}</div>
+        <div><small>SIGN-UPS · WHITELIST</small><strong>{{ 'Open' if site_settings.registrations_open == '1' else 'Closed' }} · {{ 'Open' if site_settings.whitelist_open == '1' else 'Closed' }}</strong></div>
+      </div>
+      <div class="notice notice-small"><span>⏱</span><p>Public pages promise replies within <strong>{{ response_time }}</strong>. Clear the pending queues to keep that promise. You can change the wording in Settings.</p></div>
+    </section>
+
+    <section class="panel" id="whitelist" data-tab="whitelist"><div class="panel-heading"><div><div class="eyebrow">PLAYER ACCESS</div><h2>Whitelist queue</h2></div><span class="section-count">{{ stats.pending_wl }} PENDING</span></div>
+      <div class="admin-toolbar"><input type="search" placeholder="Search name, account or email…" data-filter-input="#whitelist .queue-item"><div class="chips" data-filter-chips="#whitelist .queue-item"><button type="button" class="chip is-on" data-status="all">All</button><button type="button" class="chip" data-status="pending">Pending</button><button type="button" class="chip" data-status="approved">Approved</button><button type="button" class="chip" data-status="declined">Declined</button></div></div>
+      {% if approved_names %}<details class="export-box"><summary>Approved names ({{ approved_names|length }}) — copy &amp; export</summary>
+        <p class="muted">Paste these commands into your server console (or whitelist file) after approving players. The website can't change the Minecraft whitelist by itself.</p>
+        <textarea id="wl-commands" readonly rows="{{ [approved_names|length, 8]|min + 1 }}">{% for n in approved_names %}whitelist add {{ n }}
+{% endfor %}</textarea>
+        <div class="queue-actions"><button type="button" class="small-action" data-copy-from="#wl-commands">Copy commands</button><a class="small-action" href="{{ url_for('export_whitelist') }}">Download names (.txt)</a></div></details>{% endif %}
+      {% if requests_list %}<div class="admin-requests">{% for item in requests_list %}<article class="queue-item" data-status="{{ item.status }}"><div class="queue-head"><strong class="mono">{{ item.minecraft_name }}</strong><span class="request-status status-{{ item.status }}">{{ item.status }}</span></div><p>{{ item.account_name }} · {{ item.email }}</p>{% if item.note %}<blockquote>{{ item.note }}</blockquote>{% endif %}<small>Submitted {{ item.created_at|dt }}{% if item.reviewed_at %} · reviewed {{ item.reviewed_at|d }}{% endif %}</small>{{ review_form(url_for('update_request', request_id=item.id), item) }}</article>{% endfor %}</div>
+      {% else %}<div class="empty-state"><span class="empty-icon">⌁</span><strong>Queue is clear</strong><p>New whitelist requests will appear here.</p></div>{% endif %}
+    </section>
+
+    <section class="panel" id="rank-orders" data-tab="rank-orders"><div class="panel-heading"><div><div class="eyebrow">PAYMENT REVIEW</div><h2>Rank orders</h2></div><span class="section-count">{{ stats.pending_orders }} PENDING</span></div>
+      <p class="muted">Verify the transaction on a Polygon block explorer yourself before approving. Approval here does not grant the in-game rank automatically.</p>
+      <div class="admin-toolbar"><input type="search" placeholder="Search player, rank or hash…" data-filter-input="#rank-orders .queue-item"><div class="chips" data-filter-chips="#rank-orders .queue-item"><button type="button" class="chip is-on" data-status="all">All</button><button type="button" class="chip" data-status="pending">Pending</button><button type="button" class="chip" data-status="approved">Approved</button><button type="button" class="chip" data-status="declined">Declined</button></div><a class="small-action" href="{{ url_for('export_orders') }}">Export CSV</a></div>
+      {% for order in orders %}<article class="queue-item" data-status="{{ order.status }}"><div class="queue-head"><strong>{{ order.rank_name }} · {{ order.price }}</strong><span class="request-status status-{{ order.status }}">{{ order.status }}</span></div><p>{{ order.account_name }} ({{ order.email }}) · Minecraft: <span class="mono">{{ order.minecraft_name }}</span></p><p class="mono tx-hash">{{ order.tx_hash }}</p><small>{{ order.created_at|dt }}</small>
+        <div class="queue-actions"><a class="small-action" href="https://polygonscan.com/tx/{{ order.tx_hash|urlencode }}" target="_blank" rel="noopener noreferrer">Open in PolygonScan ↗</a><button type="button" class="small-action" data-copy-text="{{ order.tx_hash }}">Copy hash</button><button type="button" class="small-action" data-copy-text="give {{ order.minecraft_name }} ({{ order.rank_name }})">Copy note</button></div>
+        {{ review_form(url_for('update_order', order_id=order.id), order) }}</article>{% else %}<div class="empty-state"><span class="empty-icon">✦</span><strong>No rank orders yet</strong></div>{% endfor %}
+    </section>
+
+    <section class="panel" id="tickets" data-tab="tickets"><div class="panel-heading"><div><div class="eyebrow">SUPPORT</div><h2>Tickets</h2></div><span class="section-count">{{ stats.open_tickets }} OPEN</span></div>
+      <div class="admin-toolbar"><input type="search" placeholder="Search subject, name or email…" data-filter-input="#tickets .queue-item"><div class="chips" data-filter-chips="#tickets .queue-item"><button type="button" class="chip is-on" data-status="all">All</button><button type="button" class="chip" data-status="open">Open</button><button type="button" class="chip" data-status="answered">Answered</button><button type="button" class="chip" data-status="closed">Closed</button></div></div>
+      {% for t in tickets %}<article class="queue-item" data-status="{{ t.status }}"><div class="queue-head"><strong>{{ t.subject }}</strong><span class="request-status status-{{ t.status }}">{{ t.status }}</span></div><p>{{ t.account_name or 'Guest' }}: {{ t.contact_name }} · <a class="text-link" href="mailto:{{ t.contact_email }}?subject=Re: {{ t.subject|urlencode }}">{{ t.contact_email }}</a> · {{ t.category|category_label }}</p><blockquote>{{ t.message }}</blockquote><small>{{ t.created_at|dt }}</small>
+        <form method="post" action="{{ url_for('update_ticket', ticket_id=t.id) }}" class="review-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><textarea name="reply" rows="3" maxlength="1500" placeholder="{{ 'Reply (visible to the player on their dashboard)' if t.user_id else 'Reply note (guest: also email them from your own mail)' }}">{{ t.reply }}</textarea>
+          <div class="queue-actions"><button name="status" value="answered" class="small-action action-approve" type="submit">Save reply</button><button name="status" value="closed" class="small-action" type="submit">Close</button><button name="status" value="open" class="small-action" type="submit">Reopen</button></div></form></article>{% else %}<div class="empty-state"><span class="empty-icon">✉</span><strong>No tickets</strong><p>Nothing in the support inbox.</p></div>{% endfor %}
+    </section>
+
+    <section class="panel" id="users" data-tab="users"><div class="panel-heading"><div><div class="eyebrow">COMMUNITY</div><h2>Player accounts</h2></div><span class="section-count">{{ users|length }} SHOWN · {{ stats.banned }} SUSPENDED</span></div>
+      <form method="get" action="{{ url_for('admin') }}#users" class="admin-toolbar"><input type="search" name="q" value="{{ q }}" placeholder="Search username or email…"><button class="small-action" type="submit">Search</button>{% if q %}<a class="small-action" href="{{ url_for('admin') }}#users">Clear</a>{% endif %}</form>
+      <div class="user-list">{% for u in users %}<article class="user-row"><div class="user-main"><strong>{{ u.username }}</strong> <span class="role-pill role-{{ u.role }}">{{ u.role }}</span>{% if u.is_banned %} <span class="request-status status-declined">suspended</span>{% endif %}<small class="table-sub">{{ u.email }}</small><small class="table-sub">Joined {{ u.created_at|d }}{% if u.last_login %} · last login {{ u.last_login|d }}{% endif %}</small></div>
+        <div class="user-actions">
+          {% if u.id != current_user.id %}
+          <form method="post" action="{{ url_for('reset_password', user_id=u.id) }}" data-confirm="Generate a temporary password for {{ u.username }}?"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="small-action" type="submit">Reset password</button></form>
+          {% if u.role != 'admin' %}<form method="post" action="{{ url_for('toggle_ban', user_id=u.id) }}" data-confirm="{{ 'Restore' if u.is_banned else 'Suspend' }} {{ u.username }}?"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="small-action {{ '' if u.is_banned else 'action-decline' }}" type="submit">{{ 'Restore' if u.is_banned else 'Suspend' }}</button></form>{% endif %}
+          <form method="post" action="{{ url_for('change_role', user_id=u.id) }}" data-confirm="Make {{ u.username }} {{ 'a player' if u.role == 'admin' else 'an admin' }}?"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="role" value="{{ 'player' if u.role == 'admin' else 'admin' }}"><button class="small-action" type="submit">{{ 'Remove admin' if u.role == 'admin' else 'Make admin' }}</button></form>
+          {% else %}<small class="muted">This is you</small>{% endif %}
+        </div></article>{% else %}<p class="muted">No accounts match.</p>{% endfor %}</div>
+    </section>
+
+    <section class="panel" id="announcements" data-tab="announcements"><div class="panel-heading"><div><div class="eyebrow">COMMUNICATION</div><h2>Publish an update</h2></div><span class="panel-symbol">✳</span></div>
+      <form method="post" action="{{ url_for('create_announcement') }}" class="form-stack"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label>Headline<input name="title" maxlength="90" placeholder="A new adventure begins…" required></label>
+        <label>Category<select name="tag"><option>NEWS</option><option>LAUNCH</option><option>EVENT</option><option>UPDATE</option><option>COMMUNITY</option><option>MAINTENANCE</option></select></label>
+        <label>Message<textarea name="body" maxlength="1200" rows="4" placeholder="Write your announcement…" required></textarea></label>
+        <div class="check-row"><label class="check"><input type="checkbox" name="pinned" value="1"> <span>Pin to the top of the homepage</span></label></div>
+        <button class="button button-primary" type="submit">Publish announcement <span>↗</span></button></form>
+      <div class="admin-existing"><h3>Published updates <span>{{ announcements|length }}</span></h3>{% for item in announcements %}<details class="edit-item"><summary><span class="update-tag">{% if item.pinned %}📌 {% endif %}{{ item.tag }}</span><strong>{{ item.title }}</strong><small>{{ item.created_at|d }}</small></summary>
+        <form method="post" action="{{ url_for('edit_announcement', item_id=item.id) }}" class="form-stack"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label>Headline<input name="title" maxlength="90" value="{{ item.title }}" required></label><label>Category<input name="tag" maxlength="20" value="{{ item.tag }}"></label><label>Message<textarea name="body" rows="4" maxlength="1200" required>{{ item.body }}</textarea></label><button class="small-action action-approve" type="submit">Save changes</button></form>
+        <div class="queue-actions"><form method="post" action="{{ url_for('pin_announcement', item_id=item.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="small-action" type="submit">{{ 'Unpin' if item.pinned else 'Pin' }}</button></form><form method="post" action="{{ url_for('delete_announcement', announcement_id=item.id) }}" data-confirm="Delete this announcement?"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="small-action action-decline" type="submit">Delete</button></form></div></details>{% else %}<p class="muted">No announcements yet.</p>{% endfor %}</div>
+    </section>
+
+    <section class="panel" id="ranks" data-tab="ranks"><div class="panel-heading"><div><div class="eyebrow">STORE CONFIGURATION</div><h2>Manage ranks</h2></div><span class="panel-symbol">✦</span></div>
+      <form method="post" action="{{ url_for('add_rank') }}" class="form-stack"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label>Rank name<input name="name" maxlength="50" required></label><label>Price / currency label<input name="price" maxlength="30" required placeholder="5 USDT"></label><label>Description<input name="description" maxlength="200"></label><button class="button button-primary" type="submit">Add rank ↗</button></form>
+      <div class="admin-existing"><h3>Current ranks <span>{{ ranks|length }}</span></h3>{% for rank in ranks %}<details class="edit-item"><summary><strong>{{ rank.name }} · {{ rank.price }}</strong><small>{{ 'Visible' if rank.active else 'Hidden' }} · {{ rank.order_count }} order(s)</small></summary>
+        <form method="post" action="{{ url_for('edit_rank', rank_id=rank.id) }}" class="form-stack"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label>Name<input name="name" maxlength="50" value="{{ rank.name }}" required></label><label>Price<input name="price" maxlength="30" value="{{ rank.price }}" required></label><label>Description<input name="description" maxlength="200" value="{{ rank.description }}"></label><button class="small-action action-approve" type="submit">Save changes</button></form>
+        <div class="queue-actions"><form method="post" action="{{ url_for('toggle_rank', rank_id=rank.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="small-action" type="submit">{{ 'Hide' if rank.active else 'Show' }}</button></form>{% if not rank.order_count %}<form method="post" action="{{ url_for('delete_rank', rank_id=rank.id) }}" data-confirm="Delete this rank?"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="small-action action-decline" type="submit">Delete</button></form>{% endif %}</div></details>{% endfor %}</div>
+    </section>
+
+    <section class="panel" id="votes" data-tab="votes"><div class="panel-heading"><div><div class="eyebrow">COMMUNITY GROWTH</div><h2>Manage vote links</h2></div><span class="panel-symbol">★</span></div>
+      <form method="post" action="{{ url_for('add_vote_site') }}" class="form-stack"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label>Vote site title<input name="title" maxlength="80" required placeholder="Server list name"></label><label>Exact vote URL<input type="url" name="url" required placeholder="https://.../vote/..."></label><label>Short description<input name="description" maxlength="200" placeholder="Vote for our server"></label><button class="button button-primary" type="submit">Add vote link ↗</button></form>
+      <div class="admin-existing"><h3>Current links · {{ vote_sites|length }}</h3>{% for item in vote_sites %}<div class="admin-item"><div><strong>{{ item.title }}</strong><small>{{ item.url }} · {{ 'Visible' if item.active else 'Hidden' }}</small></div><div class="queue-actions"><form method="post" action="{{ url_for('toggle_vote_site', item_id=item.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="small-action" type="submit">{{ 'Hide' if item.active else 'Show' }}</button></form><form method="post" action="{{ url_for('delete_vote_site', item_id=item.id) }}" data-confirm="Remove this vote link?"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="danger-button" type="submit" aria-label="Delete vote link">×</button></form></div></div>{% else %}<p class="muted">No vote links yet. Add your server-list vote pages so players can vote.</p>{% endfor %}</div>
+    </section>
+
+    <section class="panel" id="settings" data-tab="settings"><div class="panel-heading"><div><div class="eyebrow">PUBLIC CONFIGURATION</div><h2>Server &amp; site settings</h2></div><span class="panel-symbol">⚙</span></div>
+      <form method="post" action="{{ url_for('update_settings') }}" class="form-stack settings-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <fieldset><legend>Server</legend>
+          <label>Server address <span class="label-note">host or host:port</span><input name="server_ip" maxlength="100" value="{{ site_settings.server_ip }}" required></label>
+          <label>Version label<input name="server_version" maxlength="80" value="{{ site_settings.server_version }}" required></label>
+          <label>Status mode<select name="server_status"><option value="auto" {% if site_settings.server_status == 'auto' %}selected{% endif %}>Automatic (live check) — recommended</option><option value="maintenance" {% if site_settings.server_status == 'maintenance' %}selected{% endif %}>Force: Maintenance</option><option value="online" {% if site_settings.server_status == 'online' %}selected{% endif %}>Force: Online</option><option value="offline" {% if site_settings.server_status == 'offline' %}selected{% endif %}>Force: Offline</option></select></label>
+          <label>Short description<input name="server_description" maxlength="160" value="{{ site_settings.server_description }}"></label>
+        </fieldset>
+        <fieldset><legend>Launch</legend>
+          <label>Launch date &amp; time <span class="label-note">IST (UTC+5:30) · leave empty for no countdown</span><input type="datetime-local" name="launch_at" value="{{ launch.local_input }}"></label>
+          <label>Hide server address until launch<select name="hide_ip_until_launch"><option value="1" {% if site_settings.hide_ip_until_launch == '1' %}selected{% endif %}>Yes — reveal automatically at launch</option><option value="0" {% if site_settings.hide_ip_until_launch != '1' %}selected{% endif %}>No — always show</option></select></label>
+          <label>Countdown page URL<input type="url" name="countdown_url" value="{{ site_settings.countdown_url }}" placeholder="https://…"></label>
+        </fieldset>
+        <fieldset><legend>Community</legend>
+          <label>Discord invite URL<input name="discord_url" type="url" value="{{ site_settings.discord_url }}" placeholder="https://discord.gg/your-invite"></label>
+          <label>YouTube channel URL <span class="label-note">optional</span><input name="youtube_url" type="url" value="{{ site_settings.youtube_url }}" placeholder="https://youtube.com/@…"></label>
+          <label>Support email<input name="support_email" type="email" value="{{ site_settings.support_email }}"></label>
+          <label>Response-time text <span class="label-note">shown in every "we'll reply within…" note</span><input name="response_time" maxlength="40" value="{{ site_settings.response_time }}" required></label>
+          <label>Site-wide banner <span class="label-note">optional · shown at the top of every page</span><input name="site_banner" maxlength="200" value="{{ site_settings.site_banner }}" placeholder="e.g. Maintenance tonight 9 PM IST"></label>
+        </fieldset>
+        <fieldset><legend>Access</legend>
+          <label>New sign-ups<select name="registrations_open"><option value="1" {% if site_settings.registrations_open == '1' %}selected{% endif %}>Open</option><option value="0" {% if site_settings.registrations_open != '1' %}selected{% endif %}>Closed</option></select></label>
+          <label>Whitelist requests<select name="whitelist_open"><option value="1" {% if site_settings.whitelist_open == '1' %}selected{% endif %}>Open</option><option value="0" {% if site_settings.whitelist_open != '1' %}selected{% endif %}>Closed</option></select></label>
+          <label>USDT (Polygon) wallet address <span class="label-note">leave empty to close rank orders</span><input name="wallet_address" class="mono" maxlength="42" value="{{ site_settings.wallet_address }}" placeholder="0x…"></label>
+        </fieldset>
+        <fieldset><legend>Rules page</legend>
+          <label>Rules text <span class="label-note">start a section with “## Title”, one rule per line</span><textarea name="rules_text" rows="14" maxlength="6000" data-count>{{ site_settings.rules_text }}</textarea></label>
+        </fieldset>
+        <button class="button button-primary" type="submit">Save settings <span>↗</span></button>
+      </form>
+    </section>
+
+    <section class="panel" id="audit" data-tab="audit"><div class="panel-heading"><div><div class="eyebrow">ACCOUNTABILITY</div><h2>Activity log</h2></div><span class="section-count">LAST {{ audit|length }}</span></div>
+      {% if audit %}<div class="table-wrap"><table><thead><tr><th>WHEN (UTC)</th><th>WHO</th><th>ACTION</th><th>DETAIL</th></tr></thead><tbody>{% for a in audit %}<tr><td class="mono">{{ a.created_at|dt }}</td><td>{{ a.actor_name }}</td><td class="mono">{{ a.action }}</td><td>{{ a.detail }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="empty-state"><strong>No activity yet</strong><p>Admin actions are recorded here.</p></div>{% endif %}
+    </section>
+  </div>
+</section>
+{% endblock %}

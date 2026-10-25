@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Player dashboard — FREEDOM SMP{% endblock %}
+{% block content %}
+<section class="dashboard-section section-wrap">
+  <div class="dashboard-welcome"><div><a class="back-home" href="{{ url_for('index') }}"><svg class="ico-home" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-5h4v5"/></svg>Back to home</a><div class="eyebrow">PLAYER HUB / {{ current_user.username|upper }}</div><h1>GOOD TO HAVE<br><span class="gradient-text">YOU HERE.</span></h1><p class="muted">Your community account, all in one place.</p></div><div class="profile-tile"><span class="profile-avatar">{{ current_user.username[0]|upper }}</span><div><strong>{{ current_user.username }}</strong><small>{{ 'STAFF' if current_user.role == 'admin' else 'COMMUNITY MEMBER' }}</small></div><span class="profile-spark">✦</span></div></div>
+
+  {% if launch.set and launch.prelaunch %}
+  <div class="launch-mini" data-launch-ts="{{ launch.ts }}"><div><small>LAUNCH IN</small><strong data-countdown-inline>—</strong></div><span>{{ launch.date_label }} · {{ launch.time_label }}</span></div>
+  {% endif %}
+
+  <div class="dashboard-grid">
+    <div class="panel panel-main" id="whitelist"><div class="panel-heading"><div><div class="eyebrow">SERVER ACCESS</div><h2>Get whitelisted</h2></div><span class="panel-symbol">⌁</span></div>
+      {% if is_approved %}<div class="notice notice-ok"><span>✔</span><p>You're approved! {% if ip_visible %}Join with the server address shown on the right.{% else %}The server address appears here at launch.{% endif %}</p></div>{% endif %}
+      <p>Send your Minecraft Java username to the team. Your request status shows up below.</p>
+      {% if site_settings.whitelist_open != '1' %}
+        <div class="notice"><span>⏸</span><p>Whitelist requests are temporarily closed. Check Discord for news.</p></div>
+      {% elif has_pending %}
+        <div class="notice"><span>⏱</span><p>Your request is pending. Staff review it within <strong>{{ response_time }}</strong>. You can cancel it below if you used the wrong name.</p></div>
+      {% else %}
+      <form method="post" action="{{ url_for('whitelist') }}" class="form-stack" data-auth-form>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label>Minecraft Java username<input name="minecraft_name" minlength="3" maxlength="16" pattern="[A-Za-z0-9_]{3,16}" placeholder="YourInGameName" required></label>
+        <label>Anything we should know? <span class="label-note">Optional</span><textarea name="note" maxlength="300" rows="3" placeholder="Tell us a little about what you enjoy building…"></textarea></label>
+        <div class="notice notice-small"><span>⏱</span><p>Requests are processed within {{ response_time }}.</p></div>
+        <button class="button button-primary" type="submit">Submit request <span>↗</span></button>
+      </form>
+      {% endif %}
+    </div>
+    <div class="panel"><div class="panel-heading"><div><div class="eyebrow">QUICK DETAILS</div><h2>Server info</h2></div><span class="panel-symbol">⌘</span></div><div class="info-list">
+      <div><small>ADDRESS</small>{% if ip_visible %}<strong class="mono">{{ site_settings.server_ip }}</strong>{% else %}<strong class="mono">🔒 Revealed at launch</strong>{% endif %}</div>
+      <div><small>EDITION</small><strong>Java Edition</strong></div><div><small>VERSION</small><strong>{{ site_settings.server_version }}</strong></div>
+      <div><small>STATUS</small><strong><span data-status-dot class="status-dot status-checking"></span> <span data-status-text>Checking…</span></strong></div></div>
+      {% if ip_visible %}<button class="button button-ghost button-full copy-ip" type="button" data-copy-ip="{{ site_settings.server_ip }}">Copy server IP</button>{% endif %}
+    </div>
+  </div>
+
+  <div class="panel request-panel"><div class="panel-heading"><div><div class="eyebrow">YOUR ACTIVITY</div><h2>Whitelist requests</h2></div><span class="section-count">{{ requests_list|length }} TOTAL</span></div>
+    {% if requests_list %}<div class="table-wrap"><table><thead><tr><th>MINECRAFT NAME</th><th>SUBMITTED</th><th>STATUS</th><th>STAFF NOTE</th><th></th></tr></thead><tbody>{% for item in requests_list %}<tr><td class="mono">{{ item.minecraft_name }}</td><td>{{ item.created_at|d }}</td><td><span class="request-status status-{{ item.status }}">{{ item.status }}</span></td><td class="note-cell">{{ item.admin_note or ('Waiting for review (' ~ response_time ~ ')' if item.status == 'pending' else '—') }}</td><td>{% if item.status == 'pending' %}<form method="post" action="{{ url_for('cancel_whitelist', request_id=item.id) }}" data-confirm="Cancel this pending request?"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="small-action" type="submit">Cancel</button></form>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+    {% else %}<div class="empty-state"><span class="empty-icon">⌁</span><strong>No requests yet</strong><p>Your whitelist requests will appear here after you submit one.</p></div>{% endif %}
+  </div>
+
+  <div class="panel request-panel" id="rank-orders"><div class="panel-heading"><div><div class="eyebrow">OPTIONAL SUPPORT</div><h2>Buy a rank</h2></div><span class="panel-symbol">✦</span></div>
+    <p>Pay with USDT on the <strong>Polygon</strong> network only. After sending, submit the transaction hash below. Approval is manual and takes up to <strong>{{ response_time }}</strong>. Never send funds to any other address.</p>
+    {% if site_settings.wallet_address %}
+    <div class="wallet-box"><small>USDT · POLYGON NETWORK · WALLET ADDRESS</small><code id="crypto-wallet">{{ site_settings.wallet_address }}</code><button type="button" class="button button-ghost copy-wallet" data-copy-text="{{ site_settings.wallet_address }}">Copy wallet address</button></div>
+    <form method="post" action="{{ url_for('buy_rank') }}" class="form-stack rank-order-form" data-auth-form><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>Rank<select name="rank_id" required><option value="" disabled selected>Choose a rank</option>{% for rank in rank_options %}<option value="{{ rank.id }}">{{ rank.name }} — {{ rank.price }}</option>{% endfor %}</select></label>
+      <label>Minecraft username<input name="minecraft_name" minlength="3" maxlength="16" pattern="[A-Za-z0-9_]{3,16}" required placeholder="YourInGameName"></label>
+      <label>Transaction hash<input name="tx_hash" minlength="20" maxlength="180" required placeholder="Paste the Polygon transaction hash" autocomplete="off"><span class="field-hint">Each payment hash can only be used once.</span></label>
+      <button class="button button-primary" type="submit">Submit for verification ↗</button></form>
+    {% else %}<div class="notice"><span>⏸</span><p>Rank orders are not open right now.</p></div>{% endif %}
+    {% if orders %}<div class="admin-existing"><h3>Your rank orders</h3>{% for order in orders %}<div class="admin-item"><div><strong>{{ order.rank_name }} · {{ order.price }}</strong><small>{{ order.minecraft_name }} · {{ order.created_at|d }} · {{ order.tx_hash[:18] }}…</small>{% if order.admin_note %}<small class="staff-note">Staff: {{ order.admin_note }}</small>{% elif order.status == 'pending' %}<small>Verification within {{ response_time }}</small>{% endif %}</div><span class="request-status status-{{ order.status }}">{{ order.status }}</span></div>{% endfor %}</div>{% endif %}
+  </div>
+
+  <div class="panel request-panel" id="tickets"><div class="panel-heading"><div><div class="eyebrow">HELP</div><h2>Your support tickets</h2></div><a class="button button-ghost" href="{{ url_for('support') }}">New ticket ↗</a></div>
+    {% if tickets %}{% for t in tickets %}<article class="ticket-card"><div class="queue-head"><strong>{{ t.subject }}</strong><span class="request-status status-{{ t.status }}">{{ t.status }}</span></div><small class="muted">{{ t.category|category_label }} · {{ t.created_at|d }}</small><p class="ticket-msg">{{ t.message }}</p>{% if t.reply %}<blockquote class="staff-reply"><strong>Staff reply · {{ t.replied_at|d }}</strong><br>{{ t.reply }}</blockquote>{% else %}<p class="muted">⏱ Staff will reply within {{ response_time }}.</p>{% endif %}</article>{% endfor %}
+    {% else %}<div class="empty-state"><span class="empty-icon">✉</span><strong>No tickets</strong><p>Need help? Open a ticket and staff reply within {{ response_time }}.</p></div>{% endif %}
+  </div>
+
+  <div class="panel request-panel" id="account"><div class="panel-heading"><div><div class="eyebrow">SECURITY</div><h2>Account &amp; password</h2></div><span class="panel-symbol">◇</span></div>
+    <div class="info-list"><div><small>EMAIL</small><strong>{{ current_user.email }}</strong></div><div><small>MEMBER SINCE</small><strong>{{ current_user.created_at|d }}</strong></div></div>
+    <form method="post" action="{{ url_for('change_password') }}" class="form-stack account-form" data-auth-form><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>Current password<span class="pw-wrap"><input name="current_password" type="password" autocomplete="current-password" required><button type="button" class="pw-toggle" data-pw-toggle aria-label="Show password">Show</button></span></label>
+      <label>New password <span class="label-note">10+ characters</span><span class="pw-wrap"><input name="new_password" type="password" autocomplete="new-password" minlength="10" maxlength="128" required data-pw-strength><button type="button" class="pw-toggle" data-pw-toggle aria-label="Show password">Show</button></span><span class="pw-meter" data-pw-meter aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="field-hint" data-pw-hint></span></label>
+      <label>Confirm new password<span class="pw-wrap"><input name="confirm_password" type="password" autocomplete="new-password" minlength="10" maxlength="128" required data-pw-confirm><button type="button" class="pw-toggle" data-pw-toggle aria-label="Show password">Show</button></span><span class="field-hint" data-confirm-hint></span></label>
+      <button class="button button-ghost" type="submit">Update password</button></form>
+  </div>
+</section>
+{% endblock %}
