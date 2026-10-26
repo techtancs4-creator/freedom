@@ -61,4 +61,5 @@ The included `freedom_smp.db` already contains your existing accounts; new table
 ## Things still manual
 - Approving a whitelist request does not change the Minecraft whitelist. Use the copy-ready commands in Admin > Whitelist.
 - Approving a rank order does not grant the in-game rank. Verify the payment on PolygonScan, then grant it via your permissions plugin.
+- Auto-deploy test
 - There's no email sending, so password resets go through tickets and the temporary-password button.
