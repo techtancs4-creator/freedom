@@ -1094,7 +1094,7 @@ def admin():
     requests_list = conn.execute("SELECT w.*, u.username AS account_name, u.email FROM whitelist_requests w JOIN users u ON w.user_id=u.id "
                                  "ORDER BY CASE w.status WHEN 'pending' THEN 0 ELSE 1 END, w.id DESC").fetchall()
     approved_names = [r["minecraft_name"] for r in conn.execute(
-        "SELECT DISTINCT minecraft_name FROM whitelist_requests WHERE status='approved' ORDER BY minecraft_name COLLATE NOCASE")]
+        "SELECT minecraft_name FROM (SELECT DISTINCT minecraft_name FROM whitelist_requests WHERE status='approved') AS approved_names ORDER BY LOWER(minecraft_name)")]
     if q:
         like = f"%{q}%"
         users = conn.execute("SELECT id,username,email,role,created_at,is_banned,last_login FROM users "
@@ -1187,7 +1187,7 @@ def update_request(request_id):
 @admin_required
 def export_whitelist():
     names = [r["minecraft_name"] for r in db().execute(
-        "SELECT DISTINCT minecraft_name FROM whitelist_requests WHERE status='approved' ORDER BY minecraft_name COLLATE NOCASE")]
+        "SELECT minecraft_name FROM (SELECT DISTINCT minecraft_name FROM whitelist_requests WHERE status='approved') AS approved_names ORDER BY LOWER(minecraft_name)")]
     return Response("\n".join(names) + ("\n" if names else ""), mimetype="text/plain",
                     headers={"Content-Disposition": "attachment; filename=approved-whitelist.txt"})
 
