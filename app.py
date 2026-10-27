@@ -1,4 +1,4 @@
-"""FREEDOM SMP website - Flask + SQLite.
+"""FREEDOM SMP website - Flask with SQLite (local) or PostgreSQL (DATABASE_URL).
 
 Run:  python app.py        (development)
 See README.md for configuration and deployment notes.
@@ -11,6 +11,14 @@ import re
 import secrets
 import socket
 import sqlite3
+
+try:
+    import psycopg
+except ImportError:  # SQLite development mode can still run without the PostgreSQL driver.
+    psycopg = None
+
+_INTEGRITY_ERRORS = (sqlite3.IntegrityError,) + ((psycopg.IntegrityError,) if psycopg else ())
+
 import struct
 import threading
 import time
@@ -26,6 +34,68 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DATABASE = os.environ.get("FREEDOM_DB_PATH", os.path.join(BASE_DIR, "freedom_smp.db"))
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+
+
+class HybridRow(dict):
+    """Mapping row that also supports SQLite-style integer indexing."""
+    def __init__(self, names, values):
+        super().__init__(zip(names, values))
+        self._values = tuple(values)
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return self._values[key]
+        return super().__getitem__(key)
+
+
+def _hybrid_row(cursor):
+    description = cursor.description
+    if description is None:
+        return None
+    names = [column.name for column in description]
+    return lambda values: HybridRow(names, values)
+
+class PostgresConnection:
+    """Small compatibility wrapper for the existing SQLite-style query calls."""
+    is_postgres = True
+
+    def __init__(self, url):
+        if psycopg is None:
+            raise RuntimeError("DATABASE_URL is set but psycopg is not installed. Install requirements.txt.")
+        self.raw = psycopg.connect(url, row_factory=_hybrid_row, connect_timeout=10)
+
+    @staticmethod
+    def _translate(query):
+        # Preserve the existing application's parameter style and case-insensitive behavior.
+        query = re.sub(r"\b(\w+)\s*=\s*\?\s+COLLATE\s+NOCASE",
+                       r"LOWER(\1) = LOWER(?)", query, flags=re.IGNORECASE)
+        query = re.sub(r"COUNT\(DISTINCT\s+(\w+)\s+COLLATE\s+NOCASE\)",
+                       r"COUNT(DISTINCT LOWER(\1))", query, flags=re.IGNORECASE)
+        query = re.sub(r"ORDER BY\s+(\w+)\s+COLLATE\s+NOCASE",
+                       r"ORDER BY LOWER(\1)", query, flags=re.IGNORECASE)
+        query = re.sub(r"\s+COLLATE\s+NOCASE", "", query, flags=re.IGNORECASE)
+        query = re.sub(r"\bLIKE\b", "ILIKE", query, flags=re.IGNORECASE)
+        query = query.replace("?", "%s")
+        return query
+
+    def execute(self, query, params=()):
+        return self.raw.execute(self._translate(query), params)
+
+    def executemany(self, query, params_seq):
+        with self.raw.cursor() as cursor:
+            cursor.executemany(self._translate(query), params_seq)
+            return cursor
+
+    def commit(self):
+        self.raw.commit()
+
+    def rollback(self):
+        self.raw.rollback()
+
+    def close(self):
+        self.raw.close()
+
 IST = timezone(timedelta(hours=5, minutes=30))
 LAUNCH_DEFAULT = "2026-10-30T22:59:00+05:30"   # 30 Oct 2026, 10:59 PM IST
 
@@ -134,9 +204,12 @@ ASSET_V = _asset_version()
 # --------------------------------------------------------------------------- database
 def db():
     if "db" not in g:
-        g.db = sqlite3.connect(DATABASE)
-        g.db.row_factory = sqlite3.Row
-        g.db.execute("PRAGMA foreign_keys = ON")
+        if DATABASE_URL:
+            g.db = PostgresConnection(DATABASE_URL)
+        else:
+            g.db = sqlite3.connect(DATABASE)
+            g.db.row_factory = sqlite3.Row
+            g.db.execute("PRAGMA foreign_keys = ON")
     return g.db
 
 
@@ -152,6 +225,12 @@ def now_iso():
 
 
 def _has_column(conn, table, column):
+    if getattr(conn, "is_postgres", False):
+        return bool(conn.execute(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_schema = current_schema() AND table_name = ? AND column_name = ?",
+            (table, column),
+        ).fetchone())
     return any(row[1] == column for row in conn.execute(f"PRAGMA table_info({table})"))
 
 
@@ -160,10 +239,66 @@ def _add_column(conn, table, column, ddl):
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
 
 
+def _init_postgres_schema(conn):
+    statements = [
+        """CREATE TABLE IF NOT EXISTS users (
+            id BIGSERIAL PRIMARY KEY, username TEXT NOT NULL, email TEXT NOT NULL,
+            password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'player'
+            CHECK(role IN ('player','admin')), created_at TEXT NOT NULL,
+            is_banned INTEGER NOT NULL DEFAULT 0, last_login TEXT)""",
+        """CREATE TABLE IF NOT EXISTS announcements (
+            id BIGSERIAL PRIMARY KEY, title TEXT NOT NULL, body TEXT NOT NULL,
+            tag TEXT NOT NULL DEFAULT 'NEWS', created_at TEXT NOT NULL, author_id BIGINT,
+            pinned INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY(author_id) REFERENCES users(id) ON DELETE SET NULL)""",
+        """CREATE TABLE IF NOT EXISTS whitelist_requests (
+            id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL, minecraft_name TEXT NOT NULL,
+            note TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending'
+            CHECK(status IN ('pending','approved','declined')), created_at TEXT NOT NULL,
+            admin_note TEXT NOT NULL DEFAULT '', reviewed_at TEXT, reviewed_by BIGINT,
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE)""",
+        """CREATE TABLE IF NOT EXISTS vote_sites (
+            id BIGSERIAL PRIMARY KEY, title TEXT NOT NULL, url TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1)""",
+        """CREATE TABLE IF NOT EXISTS ranks (
+            id BIGSERIAL PRIMARY KEY, name TEXT NOT NULL UNIQUE, price TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1)""",
+        """CREATE TABLE IF NOT EXISTS rank_orders (
+            id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL, rank_id BIGINT NOT NULL,
+            minecraft_name TEXT NOT NULL, tx_hash TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending'
+            CHECK(status IN ('pending','approved','declined')), created_at TEXT NOT NULL,
+            admin_note TEXT NOT NULL DEFAULT '', reviewed_at TEXT, reviewed_by BIGINT,
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY(rank_id) REFERENCES ranks(id))""",
+        """CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)""",
+        """CREATE TABLE IF NOT EXISTS tickets (
+            id BIGSERIAL PRIMARY KEY, user_id BIGINT, contact_name TEXT NOT NULL DEFAULT '',
+            contact_email TEXT NOT NULL DEFAULT '', category TEXT NOT NULL DEFAULT 'general',
+            subject TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open'
+            CHECK(status IN ('open','answered','closed')), reply TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL, replied_at TEXT, replied_by BIGINT,
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL)""",
+        """CREATE TABLE IF NOT EXISTS audit_log (
+            id BIGSERIAL PRIMARY KEY, actor_id BIGINT, actor_name TEXT NOT NULL DEFAULT '',
+            action TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL)""",
+    ]
+    for statement in statements:
+        conn.execute(statement)
+    # Case-insensitive uniqueness equivalent to SQLite's NOCASE constraints.
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_lower ON users (LOWER(username))")
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower ON users (LOWER(email))")
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_rank_orders_tx ON rank_orders (LOWER(tx_hash))")
+
+
 def init_db():
-    conn = sqlite3.connect(DATABASE)
-    conn.execute("PRAGMA foreign_keys = ON")
-    conn.executescript("""
+    if DATABASE_URL:
+        conn = PostgresConnection(DATABASE_URL)
+        _init_postgres_schema(conn)
+    else:
+        conn = sqlite3.connect(DATABASE)
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.executescript("""
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT NOT NULL COLLATE NOCASE UNIQUE,
@@ -223,12 +358,13 @@ def init_db():
         _add_column(conn, table, "admin_note", "TEXT NOT NULL DEFAULT ''")
         _add_column(conn, table, "reviewed_at", "TEXT")
         _add_column(conn, table, "reviewed_by", "INTEGER")
-    try:  # the same payment hash must not unlock more than one order
-        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_rank_orders_tx ON rank_orders(tx_hash COLLATE NOCASE)")
-    except sqlite3.DatabaseError:
-        pass
+    if not DATABASE_URL:
+        try:  # the same payment hash must not unlock more than one order
+            conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_rank_orders_tx ON rank_orders(tx_hash COLLATE NOCASE)")
+        except sqlite3.DatabaseError:
+            pass
     for key, value in DEFAULT_SETTINGS.items():
-        conn.execute("INSERT OR IGNORE INTO settings(key, value) VALUES (?, ?)", (key, value))
+        conn.execute("INSERT INTO settings(key, value) VALUES (?, ?) ON CONFLICT(key) DO NOTHING", (key, value))
     # v2: status used to be a manual switch that defaulted to 'offline'; it is now automatic.
     version = conn.execute("SELECT value FROM settings WHERE key='schema_version'").fetchone()
     if not version:
@@ -711,14 +847,15 @@ def register():
                     errors.append("That email is already registered. Try logging in instead.")
             if not errors:
                 try:
-                    cur = db().execute("INSERT INTO users(username,email,password_hash,role,created_at,last_login) VALUES (?,?,?,?,?,?)",
+                    cur = db().execute("INSERT INTO users(username,email,password_hash,role,created_at,last_login) VALUES (?,?,?,?,?,?) RETURNING id",
                                        (form["username"], form["email"], generate_password_hash(password), "player", now_iso(), now_iso()))
                     db().commit()
-                except sqlite3.IntegrityError:
+                except _INTEGRITY_ERRORS:
+                    db().rollback()
                     errors.append("That username or email is already registered.")
                 else:
                     session.clear()
-                    session["user_id"] = cur.lastrowid
+                    session["user_id"] = cur.fetchone()["id"]
                     session["csrf_token"] = secrets.token_urlsafe(32)
                     flash("Welcome to the community! Your account is ready. Next step: request your whitelist spot below.", "success")
                     return redirect(url_for("dashboard") + "#whitelist")
@@ -885,7 +1022,8 @@ def buy_rank():
             db().commit()
             flash(f"Rank order submitted. Staff verify payments manually within {get_settings()['response_time']}. "
                   "Your rank is not granted until an admin approves it.", "success")
-        except sqlite3.IntegrityError:
+        except _INTEGRITY_ERRORS:
+            db().rollback()
             flash("That transaction hash was already submitted. Each payment can only be used once. Open a support ticket if this is a mistake.", "error")
     return redirect(url_for("dashboard") + "#rank-orders")
 
@@ -1115,7 +1253,8 @@ def add_rank():
             log_action("rank.add", name)
             db().commit()
             flash("Rank added.", "success")
-        except sqlite3.IntegrityError:
+        except _INTEGRITY_ERRORS:
+            db().rollback()
             flash("That rank name already exists.", "error")
     return redirect(url_for("admin") + "#ranks")
 
@@ -1134,7 +1273,8 @@ def edit_rank(rank_id):
             log_action("rank.edit", name)
             db().commit()
             flash("Rank updated.", "success")
-        except sqlite3.IntegrityError:
+        except _INTEGRITY_ERRORS:
+            db().rollback()
             flash("Another rank already uses that name.", "error")
     return redirect(url_for("admin") + "#ranks")
 
