@@ -1,0 +1,19 @@
+
+name: Keep FREEDOM SMP Website Active
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping FREEDOM SMP Website
+        run: |
+          curl --location --silent --show-error \
+            --max-time 30 \
+            --output /dev/null \
+            --write-out "HTTP status: %{http_code}\n" \
+            https://freedom-xrhz.onrender.com/
