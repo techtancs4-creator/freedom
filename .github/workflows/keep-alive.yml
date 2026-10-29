@@ -13,7 +13,7 @@ jobs:
       - name: Ping FREEDOM SMP Website
         run: |
           curl --location --silent --show-error \
-            --max-time 30 \
+            --max-time 120 \
             --output /dev/null \
             --write-out "HTTP status: %{http_code}\n" \
             https://freedom-xrhz.onrender.com/
