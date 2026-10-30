@@ -130,7 +130,7 @@ Staff decisions are final in-game. If you disagree, open a support ticket and be
 Staff may update these rules at any time, so check Discord for announcements."""
 
 DEFAULT_SETTINGS = {
-    "server_ip": os.environ.get("SERVER_IP", "free2.vektalnodes.in:26843"),
+    "server_ip": os.environ.get("SERVER_IP", "free2.vektalnodes.in:22070"),
     "server_version": os.environ.get("SERVER_VERSION", "Java 1.21.x"),
     "server_status": "auto",
     "discord_url": os.environ.get("DISCORD_URL", "https://discord.gg/gkdRBbfHy"),
